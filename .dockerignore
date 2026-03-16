@@ -1,0 +1,28 @@
+# Credentials — must never be baked into the image!
+data/
+credentials.json
+token.json
+
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Git
+.git/
+.gitignore
+
+# Docs & registry metadata (not needed at runtime)
+README.md
+LICENSE
+registry/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store

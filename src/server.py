@@ -135,7 +135,7 @@ def create_spreadsheet(title: str, sheet_names: list = None) -> str:
 
 
 # ---------------------------------------------------------------------------
-# New tools
+# Batch 2 — 7 tools
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
@@ -204,11 +204,7 @@ def add_sheet(spreadsheet_id: str, title: str) -> str:
         title: The name for the new sheet tab.
     """
     service = get_service()
-    body = {
-        "requests": [
-            {"addSheet": {"properties": {"title": title}}}
-        ]
-    }
+    body = {"requests": [{"addSheet": {"properties": {"title": title}}}]}
     result = (
         service.spreadsheets()
         .batchUpdate(spreadsheetId=spreadsheet_id, body=body)
@@ -259,7 +255,6 @@ def find_and_replace(spreadsheet_id: str, find: str, replacement: str, sheet_id:
         find: The text to search for.
         replacement: The text to replace with.
         sheet_id: Optional numeric sheet ID to limit the search to one tab.
-                  If omitted, the replacement applies to all sheets.
     """
     service = get_service()
     find_replace = {
@@ -269,15 +264,13 @@ def find_and_replace(spreadsheet_id: str, find: str, replacement: str, sheet_id:
     }
     if sheet_id is not None:
         find_replace["sheetId"] = sheet_id
-
     body = {"requests": [{"findReplace": find_replace}]}
     result = (
         service.spreadsheets()
         .batchUpdate(spreadsheetId=spreadsheet_id, body=body)
         .execute()
     )
-    stats = result["replies"][0].get("findReplace", {})
-    replaced = stats.get("valuesChanged", 0)
+    replaced = result["replies"][0].get("findReplace", {}).get("valuesChanged", 0)
     return f"Successfully replaced {replaced} occurrence(s) of '{find}' with '{replacement}'."
 
 
@@ -309,10 +302,8 @@ def format_cells(
         text_color: Dict with r, g, b keys (0.0-1.0) e.g. {"r": 0, "g": 0, "b": 0}.
     """
     service = get_service()
-
     cell_format = {}
     fields = []
-
     text_format = {}
     if bold:
         text_format["bold"] = True
@@ -325,14 +316,11 @@ def format_cells(
         fields.append("userEnteredFormat.textFormat.foregroundColor")
     if text_format:
         cell_format["textFormat"] = text_format
-
     if background_color:
         cell_format["backgroundColor"] = background_color
         fields.append("userEnteredFormat.backgroundColor")
-
     if not fields:
         return "No formatting options specified."
-
     body = {
         "requests": [
             {
@@ -352,6 +340,293 @@ def format_cells(
     }
     service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
     return "Formatting applied successfully."
+
+
+# ---------------------------------------------------------------------------
+# Batch 3 — 8 tools
+# ---------------------------------------------------------------------------
+
+@mcp.tool()
+def rename_sheet(spreadsheet_id: str, sheet_id: int, new_title: str) -> str:
+    """Rename an existing sheet tab in a Google Spreadsheet.
+
+    Args:
+        spreadsheet_id: The ID of the spreadsheet (found in the URL).
+        sheet_id: The numeric ID of the sheet tab (use list_sheets to find it).
+        new_title: The new name for the sheet tab.
+    """
+    service = get_service()
+    body = {
+        "requests": [
+            {
+                "updateSheetProperties": {
+                    "properties": {"sheetId": sheet_id, "title": new_title},
+                    "fields": "title",
+                }
+            }
+        ]
+    }
+    service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
+    return f"Sheet renamed to '{new_title}'."
+
+
+@mcp.tool()
+def delete_sheet(spreadsheet_id: str, sheet_id: int) -> str:
+    """Delete a sheet tab from a Google Spreadsheet.
+
+    Args:
+        spreadsheet_id: The ID of the spreadsheet (found in the URL).
+        sheet_id: The numeric ID of the sheet tab to delete (use list_sheets to find it).
+    """
+    service = get_service()
+    body = {"requests": [{"deleteSheet": {"sheetId": sheet_id}}]}
+    service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
+    return f"Sheet with ID {sheet_id} deleted successfully."
+
+
+@mcp.tool()
+def duplicate_sheet(spreadsheet_id: str, sheet_id: int, new_title: str, insert_at: int = None) -> str:
+    """Duplicate a sheet tab within a Google Spreadsheet.
+
+    Args:
+        spreadsheet_id: The ID of the spreadsheet (found in the URL).
+        sheet_id: The numeric ID of the sheet to duplicate (use list_sheets to find it).
+        new_title: The name for the duplicated sheet.
+        insert_at: Optional index position to insert the duplicate (0-based).
+    """
+    service = get_service()
+    request = {
+        "duplicateSheet": {
+            "sourceSheetId": sheet_id,
+            "newSheetName": new_title,
+        }
+    }
+    if insert_at is not None:
+        request["duplicateSheet"]["insertSheetIndex"] = insert_at
+    body = {"requests": [request]}
+    result = (
+        service.spreadsheets()
+        .batchUpdate(spreadsheetId=spreadsheet_id, body=body)
+        .execute()
+    )
+    new_sheet = result["replies"][0]["duplicateSheet"]["properties"]
+    return json.dumps(
+        {"sheetId": new_sheet["sheetId"], "title": new_sheet["title"]},
+        ensure_ascii=False,
+    )
+
+
+@mcp.tool()
+def insert_rows_columns(
+    spreadsheet_id: str,
+    sheet_id: int,
+    dimension: str,
+    start_index: int,
+    count: int,
+) -> str:
+    """Insert empty rows or columns at a specific position in a Google Sheet.
+
+    Args:
+        spreadsheet_id: The ID of the spreadsheet (found in the URL).
+        sheet_id: The numeric ID of the sheet tab (use list_sheets to find it).
+        dimension: Either 'ROWS' or 'COLUMNS'.
+        start_index: The index before which to insert (0-based).
+        count: Number of rows or columns to insert.
+    """
+    service = get_service()
+    body = {
+        "requests": [
+            {
+                "insertDimension": {
+                    "range": {
+                        "sheetId": sheet_id,
+                        "dimension": dimension.upper(),
+                        "startIndex": start_index,
+                        "endIndex": start_index + count,
+                    },
+                    "inheritFromBefore": False,
+                }
+            }
+        ]
+    }
+    service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
+    return f"Successfully inserted {count} {dimension.lower()} at index {start_index}."
+
+
+@mcp.tool()
+def delete_columns(spreadsheet_id: str, sheet_id: int, start_index: int, end_index: int) -> str:
+    """Delete columns from a Google Sheet by index (0-based).
+
+    Args:
+        spreadsheet_id: The ID of the spreadsheet (found in the URL).
+        sheet_id: The numeric ID of the sheet tab (use list_sheets to find it).
+        start_index: The first column to delete (0-based, inclusive).
+        end_index: The last column to delete (0-based, exclusive).
+    """
+    service = get_service()
+    body = {
+        "requests": [
+            {
+                "deleteDimension": {
+                    "range": {
+                        "sheetId": sheet_id,
+                        "dimension": "COLUMNS",
+                        "startIndex": start_index,
+                        "endIndex": end_index,
+                    }
+                }
+            }
+        ]
+    }
+    service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
+    return f"Successfully deleted columns {start_index} to {end_index - 1}."
+
+
+@mcp.tool()
+def sort_range(
+    spreadsheet_id: str,
+    sheet_id: int,
+    range_start_row: int,
+    range_end_row: int,
+    range_start_col: int,
+    range_end_col: int,
+    sort_column_index: int,
+    ascending: bool = True,
+) -> str:
+    """Sort a range of cells by a specific column in a Google Sheet.
+
+    Args:
+        spreadsheet_id: The ID of the spreadsheet (found in the URL).
+        sheet_id: The numeric ID of the sheet tab (use list_sheets to find it).
+        range_start_row: Start row index (0-based, inclusive).
+        range_end_row: End row index (0-based, exclusive).
+        range_start_col: Start column index (0-based, inclusive).
+        range_end_col: End column index (0-based, exclusive).
+        sort_column_index: Column index to sort by (0-based, relative to range_start_col).
+        ascending: Sort order — True for ascending (A-Z), False for descending (Z-A).
+    """
+    service = get_service()
+    body = {
+        "requests": [
+            {
+                "sortRange": {
+                    "range": {
+                        "sheetId": sheet_id,
+                        "startRowIndex": range_start_row,
+                        "endRowIndex": range_end_row,
+                        "startColumnIndex": range_start_col,
+                        "endColumnIndex": range_end_col,
+                    },
+                    "sortSpecs": [
+                        {
+                            "dimensionIndex": sort_column_index,
+                            "sortOrder": "ASCENDING" if ascending else "DESCENDING",
+                        }
+                    ],
+                }
+            }
+        ]
+    }
+    service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
+    order = "ascending" if ascending else "descending"
+    return f"Range sorted {order} by column index {sort_column_index}."
+
+
+@mcp.tool()
+def freeze_rows_columns(
+    spreadsheet_id: str,
+    sheet_id: int,
+    frozen_row_count: int = 0,
+    frozen_column_count: int = 0,
+) -> str:
+    """Freeze rows and/or columns in a Google Sheet.
+
+    Args:
+        spreadsheet_id: The ID of the spreadsheet (found in the URL).
+        sheet_id: The numeric ID of the sheet tab (use list_sheets to find it).
+        frozen_row_count: Number of rows to freeze from the top (0 to unfreeze).
+        frozen_column_count: Number of columns to freeze from the left (0 to unfreeze).
+    """
+    service = get_service()
+    body = {
+        "requests": [
+            {
+                "updateSheetProperties": {
+                    "properties": {
+                        "sheetId": sheet_id,
+                        "gridProperties": {
+                            "frozenRowCount": frozen_row_count,
+                            "frozenColumnCount": frozen_column_count,
+                        },
+                    },
+                    "fields": "gridProperties.frozenRowCount,gridProperties.frozenColumnCount",
+                }
+            }
+        ]
+    }
+    service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
+    return f"Frozen {frozen_row_count} row(s) and {frozen_column_count} column(s)."
+
+
+@mcp.tool()
+def add_conditional_formatting(
+    spreadsheet_id: str,
+    sheet_id: int,
+    range_start_row: int,
+    range_end_row: int,
+    range_start_col: int,
+    range_end_col: int,
+    condition_type: str,
+    condition_value: str,
+    background_color: dict,
+) -> str:
+    """Add a conditional formatting rule to a range in a Google Sheet.
+
+    Args:
+        spreadsheet_id: The ID of the spreadsheet (found in the URL).
+        sheet_id: The numeric ID of the sheet tab (use list_sheets to find it).
+        range_start_row: Start row index (0-based, inclusive).
+        range_end_row: End row index (0-based, exclusive).
+        range_start_col: Start column index (0-based, inclusive).
+        range_end_col: End column index (0-based, exclusive).
+        condition_type: One of: NUMBER_GREATER, NUMBER_LESS, NUMBER_EQ,
+                        TEXT_CONTAINS, TEXT_EQ, BLANK, NOT_BLANK.
+        condition_value: The value to compare against (e.g. '0' or 'Done').
+        background_color: Dict with r, g, b keys (0.0-1.0) for the highlight color
+                          (e.g. {"r": 1, "g": 0, "b": 0} for red).
+    """
+    service = get_service()
+    body = {
+        "requests": [
+            {
+                "addConditionalFormatRule": {
+                    "rule": {
+                        "ranges": [
+                            {
+                                "sheetId": sheet_id,
+                                "startRowIndex": range_start_row,
+                                "endRowIndex": range_end_row,
+                                "startColumnIndex": range_start_col,
+                                "endColumnIndex": range_end_col,
+                            }
+                        ],
+                        "booleanRule": {
+                            "condition": {
+                                "type": condition_type.upper(),
+                                "values": [{"userEnteredValue": condition_value}],
+                            },
+                            "format": {
+                                "backgroundColor": background_color
+                            },
+                        },
+                    },
+                    "index": 0,
+                }
+            }
+        ]
+    }
+    service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
+    return f"Conditional formatting rule added: {condition_type} '{condition_value}'."
 
 
 if __name__ == "__main__":

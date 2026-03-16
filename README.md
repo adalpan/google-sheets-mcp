@@ -17,6 +17,14 @@ An MCP (Model Context Protocol) server that lets AI agents interact with Google 
 | 9 | `delete_rows` | Delete rows by index (0-based) |
 | 10 | `find_and_replace` | Search and replace text across sheets |
 | 11 | `format_cells` | Apply bold, font size, and background/text colors |
+| 12 | `rename_sheet` | Rename an existing sheet tab |
+| 13 | `delete_sheet` | Delete a sheet tab from a spreadsheet |
+| 14 | `duplicate_sheet` | Duplicate a sheet tab within a spreadsheet |
+| 15 | `insert_rows_columns` | Insert empty rows or columns at a specific position |
+| 16 | `delete_columns` | Delete columns by index (0-based) |
+| 17 | `sort_range` | Sort a range by a specific column (asc or desc) |
+| 18 | `freeze_rows_columns` | Freeze header rows/columns so they stay visible |
+| 19 | `add_conditional_formatting` | Highlight cells based on rules (e.g. red if negative) |
 
 ## Setup
 
@@ -58,7 +66,7 @@ Add this to your `claude_desktop_config.json`:
 }
 ```
 
-### 4. Connect via Python (without Docker)
+### 4. Run locally without Docker
 
 ```bash
 git clone https://github.com/adalpan/google-sheets-mcp
@@ -83,12 +91,20 @@ Opens a web UI to call and test each tool interactively.
 - *"Read cells A1 to D10 from Sheet1"*
 - *"Append a new row with ['Alice', 30, 'Berlin'] to Sheet1"*
 - *"Create a new spreadsheet called 'Q1 Budget' with sheets Sales and Expenses"*
-- *"Update cell B2 in my spreadsheet to 'Completed'"*
+- *"Update cell B2 to 'Completed'"*
 - *"Clear the range Sheet1!A1:Z100"*
-- *"Add a new tab called 'Archive' to my spreadsheet"*
+- *"Add a new tab called 'Archive'"*
 - *"Delete rows 5 to 10 from Sheet1"*
 - *"Find and replace 'Pending' with 'Done' across all sheets"*
 - *"Make the header row bold with a yellow background"*
+- *"Rename the sheet 'Sheet1' to 'Sales Q1'"*
+- *"Delete the tab called 'Draft'"*
+- *"Duplicate the 'Template' sheet and call it 'January'"*
+- *"Insert 3 empty rows before row 5"*
+- *"Delete columns C and D"*
+- *"Sort the data range by the second column in descending order"*
+- *"Freeze the first row and first column"*
+- *"Highlight in red all cells in column B that are less than 0"*
 
 ## License
 

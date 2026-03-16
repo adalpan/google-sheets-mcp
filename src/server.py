@@ -1,5 +1,6 @@
 import os
 import json
+from typing import Optional
 from mcp.server.fastmcp import FastMCP
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
@@ -108,7 +109,7 @@ def append_rows(spreadsheet_id: str, range: str, values: list) -> str:
 
 
 @mcp.tool()
-def create_spreadsheet(title: str, sheet_names: list = None) -> str:
+def create_spreadsheet(title: str, sheet_names: Optional[list] = None) -> str:
     """Create a new Google Spreadsheet.
 
     Args:
@@ -222,7 +223,7 @@ def delete_rows(spreadsheet_id: str, sheet_id: int, start_index: int, end_index:
 
 
 @mcp.tool()
-def find_and_replace(spreadsheet_id: str, find: str, replacement: str, sheet_id: int = None) -> str:
+def find_and_replace(spreadsheet_id: str, find: str, replacement: str, sheet_id: Optional[int] = None) -> str:
     """Find and replace text across a Google Spreadsheet or a specific sheet.
 
     Args:
@@ -246,8 +247,10 @@ def format_cells(
     spreadsheet_id: str, sheet_id: int,
     range_start_row: int, range_end_row: int,
     range_start_col: int, range_end_col: int,
-    bold: bool = False, font_size: int = None,
-    background_color: dict = None, text_color: dict = None,
+    bold: bool = False,
+    font_size: Optional[int] = None,
+    background_color: Optional[dict] = None,
+    text_color: Optional[dict] = None,
 ) -> str:
     """Apply formatting to a range of cells in a Google Sheet.
 
@@ -320,7 +323,7 @@ def delete_sheet(spreadsheet_id: str, sheet_id: int) -> str:
 
 
 @mcp.tool()
-def duplicate_sheet(spreadsheet_id: str, sheet_id: int, new_title: str, insert_at: int = None) -> str:
+def duplicate_sheet(spreadsheet_id: str, sheet_id: int, new_title: str, insert_at: Optional[int] = None) -> str:
     """Duplicate a sheet tab within a Google Spreadsheet.
 
     Args:
@@ -439,7 +442,7 @@ def add_conditional_formatting(
 
 
 # ---------------------------------------------------------------------------
-# Batch 4 — 9 new tools: Values batch ops + full sheet management
+# Batch 4 — 9 tools: Values batch ops + full sheet management
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
@@ -448,7 +451,7 @@ def batch_get_values(spreadsheet_id: str, ranges: list) -> str:
 
     Args:
         spreadsheet_id: The ID of the spreadsheet (found in the URL).
-        ranges: List of A1 notation ranges to read (e.g. ['Sheet1!A1:C10', 'Sheet2!B2:D5']).
+        ranges: List of A1 notation ranges (e.g. ['Sheet1!A1:C10', 'Sheet2!B2:D5']).
     """
     service = get_service()
     result = (
@@ -457,10 +460,9 @@ def batch_get_values(spreadsheet_id: str, ranges: list) -> str:
         .batchGet(spreadsheetId=spreadsheet_id, ranges=ranges)
         .execute()
     )
-    value_ranges = result.get("valueRanges", [])
     output = [
         {"range": vr.get("range"), "values": vr.get("values", [])}
-        for vr in value_ranges
+        for vr in result.get("valueRanges", [])
     ]
     return json.dumps(output, ensure_ascii=False)
 
@@ -471,20 +473,17 @@ def batch_update_values(spreadsheet_id: str, updates: list) -> str:
 
     Args:
         spreadsheet_id: The ID of the spreadsheet (found in the URL).
-        updates: List of dicts, each with 'range' (A1 notation) and 'values' (2D list).
+        updates: List of dicts with 'range' and 'values' keys.
                  Example: [{'range': 'Sheet1!A1', 'values': [['Name', 'Age']]}, ...]
     """
     service = get_service()
-    data = [{"range": u["range"], "values": u["values"]} for u in updates]
-    body = {"valueInputOption": "USER_ENTERED", "data": data}
-    result = (
-        service.spreadsheets()
-        .values()
-        .batchUpdate(spreadsheetId=spreadsheet_id, body=body)
-        .execute()
-    )
-    total_updated = result.get("totalUpdatedCells", 0)
-    return f"Successfully updated {total_updated} cell(s) across {len(updates)} range(s)."
+    body = {
+        "valueInputOption": "USER_ENTERED",
+        "data": [{"range": u["range"], "values": u["values"]} for u in updates],
+    }
+    result = service.spreadsheets().values().batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
+    total = result.get("totalUpdatedCells", 0)
+    return f"Successfully updated {total} cell(s) across {len(updates)} range(s)."
 
 
 @mcp.tool()
@@ -493,12 +492,11 @@ def batch_clear_values(spreadsheet_id: str, ranges: list) -> str:
 
     Args:
         spreadsheet_id: The ID of the spreadsheet (found in the URL).
-        ranges: List of A1 notation ranges to clear (e.g. ['Sheet1!A1:C10', 'Sheet2!B2:D5']).
+        ranges: List of A1 notation ranges to clear.
     """
     service = get_service()
-    body = {"ranges": ranges}
     service.spreadsheets().values().batchClear(
-        spreadsheetId=spreadsheet_id, body=body
+        spreadsheetId=spreadsheet_id, body={"ranges": ranges}
     ).execute()
     return f"Successfully cleared {len(ranges)} range(s)."
 
@@ -513,17 +511,17 @@ def copy_sheet_to(source_spreadsheet_id: str, sheet_id: int, destination_spreads
         destination_spreadsheet_id: The ID of the destination spreadsheet.
     """
     service = get_service()
-    body = {"destinationSpreadsheetId": destination_spreadsheet_id}
     result = (
         service.spreadsheets()
         .sheets()
-        .copyTo(spreadsheetId=source_spreadsheet_id, sheetId=sheet_id, body=body)
+        .copyTo(
+            spreadsheetId=source_spreadsheet_id,
+            sheetId=sheet_id,
+            body={"destinationSpreadsheetId": destination_spreadsheet_id},
+        )
         .execute()
     )
-    return json.dumps(
-        {"newSheetId": result["sheetId"], "newSheetTitle": result["title"]},
-        ensure_ascii=False,
-    )
+    return json.dumps({"newSheetId": result["sheetId"], "newSheetTitle": result["title"]})
 
 
 @mcp.tool()
@@ -542,19 +540,7 @@ def move_dimension(
         destination_index: Index to move the rows/columns to.
     """
     service = get_service()
-    body = {
-        "requests": [{
-            "moveDimension": {
-                "source": {
-                    "sheetId": sheet_id,
-                    "dimension": dimension.upper(),
-                    "startIndex": start_index,
-                    "endIndex": end_index,
-                },
-                "destinationIndex": destination_index,
-            }
-        }]
-    }
+    body = {"requests": [{"moveDimension": {"source": {"sheetId": sheet_id, "dimension": dimension.upper(), "startIndex": start_index, "endIndex": end_index}, "destinationIndex": destination_index}}]}
     service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
     return f"Moved {dimension.lower()} {start_index}-{end_index - 1} to position {destination_index}."
 
@@ -564,7 +550,7 @@ def delete_duplicates(
     spreadsheet_id: str, sheet_id: int,
     range_start_row: int, range_end_row: int,
     range_start_col: int, range_end_col: int,
-    comparison_columns: list = None,
+    comparison_columns: Optional[list] = None,
 ) -> str:
     """Remove duplicate rows from a range in a Google Sheet.
 
@@ -575,29 +561,17 @@ def delete_duplicates(
         range_end_row: End row index (0-based, exclusive).
         range_start_col: Start column index (0-based, inclusive).
         range_end_col: End column index (0-based, exclusive).
-        comparison_columns: Optional list of 0-based column indices to compare for duplicates.
-                            If omitted, all columns in the range are compared.
+        comparison_columns: Optional list of 0-based column indices to compare.
+                            If omitted, all columns are compared.
     """
     service = get_service()
-    request = {
-        "deleteDuplicates": {
-            "range": {
-                "sheetId": sheet_id,
-                "startRowIndex": range_start_row,
-                "endRowIndex": range_end_row,
-                "startColumnIndex": range_start_col,
-                "endColumnIndex": range_end_col,
-            }
-        }
-    }
+    request = {"deleteDuplicates": {"range": {"sheetId": sheet_id, "startRowIndex": range_start_row, "endRowIndex": range_end_row, "startColumnIndex": range_start_col, "endColumnIndex": range_end_col}}}
     if comparison_columns:
         request["deleteDuplicates"]["comparisonColumns"] = [
             {"sheetId": sheet_id, "dimension": "COLUMNS", "startIndex": c, "endIndex": c + 1}
             for c in comparison_columns
         ]
-    result = service.spreadsheets().batchUpdate(
-        spreadsheetId=spreadsheet_id, body={"requests": [request]}
-    ).execute()
+    result = service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body={"requests": [request]}).execute()
     removed = result["replies"][0].get("deleteDuplicates", {}).get("duplicatesRemovedCount", 0)
     return f"Removed {removed} duplicate row(s)."
 
@@ -619,21 +593,9 @@ def trim_whitespace(
         range_end_col: End column index (0-based, exclusive).
     """
     service = get_service()
-    body = {
-        "requests": [{
-            "trimWhitespace": {
-                "range": {
-                    "sheetId": sheet_id,
-                    "startRowIndex": range_start_row,
-                    "endRowIndex": range_end_row,
-                    "startColumnIndex": range_start_col,
-                    "endColumnIndex": range_end_col,
-                }
-            }
-        }]
-    }
+    body = {"requests": [{"trimWhitespace": {"range": {"sheetId": sheet_id, "startRowIndex": range_start_row, "endRowIndex": range_end_row, "startColumnIndex": range_start_col, "endColumnIndex": range_end_col}}}]}
     result = service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
-    trimmed = result["replies"][0].get("trimWhitespace", {}).get("cellsChangedCount", 0)
+    trimmed = result["replies"][0].get("trimWhitespace", {}).get("cellsChangedCount",0)
     return f"Trimmed whitespace from {trimmed} cell(s)."
 
 
@@ -653,23 +615,10 @@ def insert_range(
         range_end_row: End row index (0-based, exclusive).
         range_start_col: Start column index (0-based, inclusive).
         range_end_col: End column index (0-based, exclusive).
-        shift_dimension: 'ROWS' to shift existing cells down, 'COLUMNS' to shift right.
+        shift_dimension: 'ROWS' to shift cells down, 'COLUMNS' to shift right.
     """
     service = get_service()
-    body = {
-        "requests": [{
-            "insertRange": {
-                "range": {
-                    "sheetId": sheet_id,
-                    "startRowIndex": range_start_row,
-                    "endRowIndex": range_end_row,
-                    "startColumnIndex": range_start_col,
-                    "endColumnIndex": range_end_col,
-                },
-                "shiftDimension": shift_dimension.upper(),
-            }
-        }]
-    }
+    body = {"requests": [{"insertRange": {"range": {"sheetId": sheet_id, "startRowIndex": range_start_row, "endRowIndex": range_end_row, "startColumnIndex": range_start_col, "endColumnIndex": range_end_col}, "shiftDimension": shift_dimension.upper()}}]}
     service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
     return f"Inserted blank range and shifted existing cells {shift_dimension.lower()}."
 
@@ -690,23 +639,10 @@ def delete_range(
         range_end_row: End row index (0-based, exclusive).
         range_start_col: Start column index (0-based, inclusive).
         range_end_col: End column index (0-based, exclusive).
-        shift_dimension: 'ROWS' to shift remaining cells up, 'COLUMNS' to shift left.
+        shift_dimension: 'ROWS' to shift cells up, 'COLUMNS' to shift left.
     """
     service = get_service()
-    body = {
-        "requests": [{
-            "deleteRange": {
-                "range": {
-                    "sheetId": sheet_id,
-                    "startRowIndex": range_start_row,
-                    "endRowIndex": range_end_row,
-                    "startColumnIndex": range_start_col,
-                    "endColumnIndex": range_end_col,
-                },
-                "shiftDimension": shift_dimension.upper(),
-            }
-        }]
-    }
+    body = {"requests": [{"deleteRange": {"range": {"sheetId": sheet_id, "startRowIndex": range_start_row, "endRowIndex": range_end_row, "startColumnIndex": range_start_col, "endColumnIndex": range_end_col}, "shiftDimension": shift_dimension.upper()}}]}
     service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
     return f"Deleted range and shifted remaining cells {shift_dimension.lower()}."
 

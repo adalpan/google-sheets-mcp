@@ -5,14 +5,8 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "spreadsheet_id": {
-          "type": "string",
-          "description": "The ID of the spreadsheet (found in the URL)."
-        },
-        "range": {
-          "type": "string",
-          "description": "The A1 notation range to read (e.g. 'Sheet1!A1:D10')."
-        }
+        "spreadsheet_id": { "type": "string", "description": "The ID of the spreadsheet (found in the URL)." },
+        "range": { "type": "string", "description": "The A1 notation range to read (e.g. 'Sheet1!A1:D10')." }
       },
       "required": ["spreadsheet_id", "range"]
     }
@@ -23,18 +17,9 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "spreadsheet_id": {
-          "type": "string",
-          "description": "The ID of the spreadsheet (found in the URL)."
-        },
-        "range": {
-          "type": "string",
-          "description": "The A1 notation range to write (e.g. 'Sheet1!A1')."
-        },
-        "values": {
-          "type": "array",
-          "description": "2D list of values to write (e.g. [['Name', 'Age'], ['Alice', 30]])."
-        }
+        "spreadsheet_id": { "type": "string", "description": "The ID of the spreadsheet (found in the URL)." },
+        "range": { "type": "string", "description": "The A1 notation range to write (e.g. 'Sheet1!A1')." },
+        "values": { "type": "array", "description": "2D list of values to write (e.g. [['Name', 'Age'], ['Alice', 30]])." }
       },
       "required": ["spreadsheet_id", "range", "values"]
     }
@@ -45,18 +30,9 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "spreadsheet_id": {
-          "type": "string",
-          "description": "The ID of the spreadsheet (found in the URL)."
-        },
-        "range": {
-          "type": "string",
-          "description": "The A1 notation range to append after (e.g. 'Sheet1!A1')."
-        },
-        "values": {
-          "type": "array",
-          "description": "2D list of rows to append (e.g. [['Alice', 30], ['Bob', 25]])."
-        }
+        "spreadsheet_id": { "type": "string", "description": "The ID of the spreadsheet (found in the URL)." },
+        "range": { "type": "string", "description": "The A1 notation range to append after (e.g. 'Sheet1!A1')." },
+        "values": { "type": "array", "description": "2D list of rows to append." }
       },
       "required": ["spreadsheet_id", "range", "values"]
     }
@@ -67,17 +43,104 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "title": {
-          "type": "string",
-          "description": "The title of the new spreadsheet."
-        },
-        "sheet_names": {
-          "type": "array",
-          "description": "Optional list of sheet tab names (e.g. ['Sales', 'Inventory']).",
-          "items": { "type": "string" }
-        }
+        "title": { "type": "string", "description": "The title of the new spreadsheet." },
+        "sheet_names": { "type": "array", "items": { "type": "string" }, "description": "Optional list of sheet tab names." }
       },
       "required": ["title"]
+    }
+  },
+  {
+    "name": "list_sheets",
+    "description": "List all sheet tabs inside a Google Spreadsheet.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "spreadsheet_id": { "type": "string", "description": "The ID of the spreadsheet (found in the URL)." }
+      },
+      "required": ["spreadsheet_id"]
+    }
+  },
+  {
+    "name": "get_spreadsheet_info",
+    "description": "Get metadata about a Google Spreadsheet (title, sheets, row/column counts).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "spreadsheet_id": { "type": "string", "description": "The ID of the spreadsheet (found in the URL)." }
+      },
+      "required": ["spreadsheet_id"]
+    }
+  },
+  {
+    "name": "clear_range",
+    "description": "Clear all values in a range of a Google Sheet.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "spreadsheet_id": { "type": "string", "description": "The ID of the spreadsheet (found in the URL)." },
+        "range": { "type": "string", "description": "The A1 notation range to clear (e.g. 'Sheet1!A1:D10')." }
+      },
+      "required": ["spreadsheet_id", "range"]
+    }
+  },
+  {
+    "name": "add_sheet",
+    "description": "Add a new sheet tab to an existing Google Spreadsheet.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "spreadsheet_id": { "type": "string", "description": "The ID of the spreadsheet (found in the URL)." },
+        "title": { "type": "string", "description": "The name for the new sheet tab." }
+      },
+      "required": ["spreadsheet_id", "title"]
+    }
+  },
+  {
+    "name": "delete_rows",
+    "description": "Delete rows from a Google Sheet by index (0-based).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "spreadsheet_id": { "type": "string", "description": "The ID of the spreadsheet (found in the URL)." },
+        "sheet_id": { "type": "integer", "description": "The numeric ID of the sheet tab (use list_sheets to find it)." },
+        "start_index": { "type": "integer", "description": "First row to delete (0-based, inclusive)." },
+        "end_index": { "type": "integer", "description": "Last row to delete (0-based, exclusive)." }
+      },
+      "required": ["spreadsheet_id", "sheet_id", "start_index", "end_index"]
+    }
+  },
+  {
+    "name": "find_and_replace",
+    "description": "Find and replace text across a Google Spreadsheet or a specific sheet.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "spreadsheet_id": { "type": "string", "description": "The ID of the spreadsheet (found in the URL)." },
+        "find": { "type": "string", "description": "The text to search for." },
+        "replacement": { "type": "string", "description": "The text to replace with." },
+        "sheet_id": { "type": "integer", "description": "Optional numeric sheet ID to limit the search to one tab." }
+      },
+      "required": ["spreadsheet_id", "find", "replacement"]
+    }
+  },
+  {
+    "name": "format_cells",
+    "description": "Apply formatting (bold, font size, background/text color) to a range of cells.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "spreadsheet_id": { "type": "string", "description": "The ID of the spreadsheet (found in the URL)." },
+        "sheet_id": { "type": "integer", "description": "The numeric ID of the sheet tab." },
+        "range_start_row": { "type": "integer", "description": "Start row index (0-based, inclusive)." },
+        "range_end_row": { "type": "integer", "description": "End row index (0-based, exclusive)." },
+        "range_start_col": { "type": "integer", "description": "Start column index (0-based, inclusive)." },
+        "range_end_col": { "type": "integer", "description": "End column index (0-based, exclusive)." },
+        "bold": { "type": "boolean", "description": "Whether to make the text bold." },
+        "font_size": { "type": "integer", "description": "Font size in points (e.g. 12)." },
+        "background_color": { "type": "object", "description": "Dict with r, g, b keys (0.0-1.0) for background color." },
+        "text_color": { "type": "object", "description": "Dict with r, g, b keys (0.0-1.0) for text color." }
+      },
+      "required": ["spreadsheet_id", "sheet_id", "range_start_row", "range_end_row", "range_start_col", "range_end_col"]
     }
   }
 ]

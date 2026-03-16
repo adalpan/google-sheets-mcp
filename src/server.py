@@ -28,6 +28,10 @@ def get_service():
     return build("sheets", "v4", credentials=creds)
 
 
+# ---------------------------------------------------------------------------
+# Original 4 tools
+# ---------------------------------------------------------------------------
+
 @mcp.tool()
 def read_sheet(spreadsheet_id: str, range: str) -> str:
     """Read data from a Google Sheet.
@@ -128,6 +132,226 @@ def create_spreadsheet(title: str, sheet_names: list = None) -> str:
     sid = spreadsheet["spreadsheetId"]
     url = f"https://docs.google.com/spreadsheets/d/{sid}"
     return json.dumps({"spreadsheetId": sid, "url": url})
+
+
+# ---------------------------------------------------------------------------
+# New tools
+# ---------------------------------------------------------------------------
+
+@mcp.tool()
+def list_sheets(spreadsheet_id: str) -> str:
+    """List all sheet tabs inside a Google Spreadsheet.
+
+    Args:
+        spreadsheet_id: The ID of the spreadsheet (found in the URL).
+    """
+    service = get_service()
+    result = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+    sheets = [
+        {"sheetId": s["properties"]["sheetId"], "title": s["properties"]["title"]}
+        for s in result.get("sheets", [])
+    ]
+    return json.dumps(sheets, ensure_ascii=False)
+
+
+@mcp.tool()
+def get_spreadsheet_info(spreadsheet_id: str) -> str:
+    """Get metadata about a Google Spreadsheet (title, sheets, row/column counts).
+
+    Args:
+        spreadsheet_id: The ID of the spreadsheet (found in the URL).
+    """
+    service = get_service()
+    result = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+    info = {
+        "spreadsheetId": result["spreadsheetId"],
+        "title": result["properties"]["title"],
+        "url": result["spreadsheetUrl"],
+        "sheets": [
+            {
+                "sheetId": s["properties"]["sheetId"],
+                "title": s["properties"]["title"],
+                "rowCount": s["properties"]["gridProperties"]["rowCount"],
+                "columnCount": s["properties"]["gridProperties"]["columnCount"],
+            }
+            for s in result.get("sheets", [])
+        ],
+    }
+    return json.dumps(info, ensure_ascii=False)
+
+
+@mcp.tool()
+def clear_range(spreadsheet_id: str, range: str) -> str:
+    """Clear all values in a range of a Google Sheet.
+
+    Args:
+        spreadsheet_id: The ID of the spreadsheet (found in the URL).
+        range: The A1 notation range to clear (e.g. 'Sheet1!A1:D10').
+    """
+    service = get_service()
+    service.spreadsheets().values().clear(
+        spreadsheetId=spreadsheet_id, range=range, body={}
+    ).execute()
+    return f"Successfully cleared range '{range}'."
+
+
+@mcp.tool()
+def add_sheet(spreadsheet_id: str, title: str) -> str:
+    """Add a new sheet tab to an existing Google Spreadsheet.
+
+    Args:
+        spreadsheet_id: The ID of the spreadsheet (found in the URL).
+        title: The name for the new sheet tab.
+    """
+    service = get_service()
+    body = {
+        "requests": [
+            {"addSheet": {"properties": {"title": title}}}
+        ]
+    }
+    result = (
+        service.spreadsheets()
+        .batchUpdate(spreadsheetId=spreadsheet_id, body=body)
+        .execute()
+    )
+    new_sheet = result["replies"][0]["addSheet"]["properties"]
+    return json.dumps(
+        {"sheetId": new_sheet["sheetId"], "title": new_sheet["title"]},
+        ensure_ascii=False,
+    )
+
+
+@mcp.tool()
+def delete_rows(spreadsheet_id: str, sheet_id: int, start_index: int, end_index: int) -> str:
+    """Delete rows from a Google Sheet by index (0-based).
+
+    Args:
+        spreadsheet_id: The ID of the spreadsheet (found in the URL).
+        sheet_id: The numeric ID of the sheet tab (use list_sheets to find it).
+        start_index: The first row to delete (0-based, inclusive).
+        end_index: The last row to delete (0-based, exclusive).
+    """
+    service = get_service()
+    body = {
+        "requests": [
+            {
+                "deleteDimension": {
+                    "range": {
+                        "sheetId": sheet_id,
+                        "dimension": "ROWS",
+                        "startIndex": start_index,
+                        "endIndex": end_index,
+                    }
+                }
+            }
+        ]
+    }
+    service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
+    return f"Successfully deleted rows {start_index} to {end_index - 1}."
+
+
+@mcp.tool()
+def find_and_replace(spreadsheet_id: str, find: str, replacement: str, sheet_id: int = None) -> str:
+    """Find and replace text across a Google Spreadsheet or a specific sheet.
+
+    Args:
+        spreadsheet_id: The ID of the spreadsheet (found in the URL).
+        find: The text to search for.
+        replacement: The text to replace with.
+        sheet_id: Optional numeric sheet ID to limit the search to one tab.
+                  If omitted, the replacement applies to all sheets.
+    """
+    service = get_service()
+    find_replace = {
+        "find": find,
+        "replacement": replacement,
+        "allSheets": sheet_id is None,
+    }
+    if sheet_id is not None:
+        find_replace["sheetId"] = sheet_id
+
+    body = {"requests": [{"findReplace": find_replace}]}
+    result = (
+        service.spreadsheets()
+        .batchUpdate(spreadsheetId=spreadsheet_id, body=body)
+        .execute()
+    )
+    stats = result["replies"][0].get("findReplace", {})
+    replaced = stats.get("valuesChanged", 0)
+    return f"Successfully replaced {replaced} occurrence(s) of '{find}' with '{replacement}'."
+
+
+@mcp.tool()
+def format_cells(
+    spreadsheet_id: str,
+    sheet_id: int,
+    range_start_row: int,
+    range_end_row: int,
+    range_start_col: int,
+    range_end_col: int,
+    bold: bool = False,
+    font_size: int = None,
+    background_color: dict = None,
+    text_color: dict = None,
+) -> str:
+    """Apply formatting to a range of cells in a Google Sheet.
+
+    Args:
+        spreadsheet_id: The ID of the spreadsheet (found in the URL).
+        sheet_id: The numeric ID of the sheet tab (use list_sheets to find it).
+        range_start_row: Start row index (0-based, inclusive).
+        range_end_row: End row index (0-based, exclusive).
+        range_start_col: Start column index (0-based, inclusive).
+        range_end_col: End column index (0-based, exclusive).
+        bold: Whether to make the text bold.
+        font_size: Font size in points (e.g. 12).
+        background_color: Dict with r, g, b keys (0.0-1.0) e.g. {"r": 1, "g": 0.9, "b": 0}.
+        text_color: Dict with r, g, b keys (0.0-1.0) e.g. {"r": 0, "g": 0, "b": 0}.
+    """
+    service = get_service()
+
+    cell_format = {}
+    fields = []
+
+    text_format = {}
+    if bold:
+        text_format["bold"] = True
+        fields.append("userEnteredFormat.textFormat.bold")
+    if font_size:
+        text_format["fontSize"] = font_size
+        fields.append("userEnteredFormat.textFormat.fontSize")
+    if text_color:
+        text_format["foregroundColor"] = text_color
+        fields.append("userEnteredFormat.textFormat.foregroundColor")
+    if text_format:
+        cell_format["textFormat"] = text_format
+
+    if background_color:
+        cell_format["backgroundColor"] = background_color
+        fields.append("userEnteredFormat.backgroundColor")
+
+    if not fields:
+        return "No formatting options specified."
+
+    body = {
+        "requests": [
+            {
+                "repeatCell": {
+                    "range": {
+                        "sheetId": sheet_id,
+                        "startRowIndex": range_start_row,
+                        "endRowIndex": range_end_row,
+                        "startColumnIndex": range_start_col,
+                        "endColumnIndex": range_end_col,
+                    },
+                    "cell": {"userEnteredFormat": cell_format},
+                    "fields": ",".join(fields),
+                }
+            }
+        ]
+    }
+    service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
+    return "Formatting applied successfully."
 
 
 if __name__ == "__main__":

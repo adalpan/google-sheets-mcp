@@ -12,23 +12,33 @@ SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 TOKEN_PATH = os.environ.get("TOKEN_PATH", "/data/token.json")
 CREDENTIALS_PATH = os.environ.get("CREDENTIALS_PATH", "/data/credentials.json")
 SERVICE_ACCOUNT_PATH = os.environ.get("SERVICE_ACCOUNT_PATH", "/data/service_account.json")
+SERVICE_ACCOUNT_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
 
 mcp = FastMCP("google-sheets-mcp")
 
 
 def get_service():
-    """Auto-detect authentication method:
-    - If service_account.json exists -> use Service Account (recommended for Docker)
-    - If credentials.json exists -> use OAuth 2.0 (recommended for local dev)
+    """Auto-detect authentication method (priority order):
+    1. GOOGLE_SERVICE_ACCOUNT_JSON env var (Docker Desktop config UI)
+    2. service_account.json file (Docker volume mount)
+    3. OAuth 2.0 credentials.json file (local/personal use)
     """
-    # --- Service Account (preferred for Docker) ---
+    # --- 1. Service Account via env var (Docker Desktop config UI) ---
+    if SERVICE_ACCOUNT_JSON:
+        info = json.loads(SERVICE_ACCOUNT_JSON)
+        creds = service_account.Credentials.from_service_account_info(
+            info, scopes=SCOPES
+        )
+        return build("sheets", "v4", credentials=creds)
+
+    # --- 2. Service Account via file (volume mount) ---
     if os.path.exists(SERVICE_ACCOUNT_PATH):
         creds = service_account.Credentials.from_service_account_file(
             SERVICE_ACCOUNT_PATH, scopes=SCOPES
         )
         return build("sheets", "v4", credentials=creds)
 
-    # --- OAuth 2.0 (for personal/local use) ---
+    # --- 3. OAuth 2.0 (local/personal use) ---
     creds = None
     if os.path.exists(TOKEN_PATH):
         creds = Credentials.from_authorized_user_file(TOKEN_PATH, SCOPES)
@@ -38,9 +48,10 @@ def get_service():
         else:
             if not os.path.exists(CREDENTIALS_PATH):
                 raise FileNotFoundError(
-                    "No credentials found. Please provide either:\n"
-                    f"  - Service Account: {SERVICE_ACCOUNT_PATH}\n"
-                    f"  - OAuth 2.0 credentials: {CREDENTIALS_PATH}"
+                    "No credentials found. Please provide one of:\n"
+                    "  1. GOOGLE_SERVICE_ACCOUNT_JSON env var (Docker Desktop config UI)\n"
+                    f"  2. Service Account file: {SERVICE_ACCOUNT_PATH}\n"
+                    f"  3. OAuth 2.0 credentials file: {CREDENTIALS_PATH}"
                 )
             flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_PATH, SCOPES)
             creds = flow.run_local_server(port=0)

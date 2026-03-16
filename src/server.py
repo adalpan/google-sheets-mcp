@@ -3,6 +3,7 @@ import json
 from typing import Optional
 from mcp.server.fastmcp import FastMCP
 from google.oauth2.credentials import Credentials
+from google.oauth2 import service_account
 from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
@@ -10,11 +11,24 @@ from googleapiclient.discovery import build
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 TOKEN_PATH = os.environ.get("TOKEN_PATH", "/data/token.json")
 CREDENTIALS_PATH = os.environ.get("CREDENTIALS_PATH", "/data/credentials.json")
+SERVICE_ACCOUNT_PATH = os.environ.get("SERVICE_ACCOUNT_PATH", "/data/service_account.json")
 
 mcp = FastMCP("google-sheets-mcp")
 
 
 def get_service():
+    """Auto-detect authentication method:
+    - If service_account.json exists -> use Service Account (recommended for Docker)
+    - If credentials.json exists -> use OAuth 2.0 (recommended for local dev)
+    """
+    # --- Service Account (preferred for Docker) ---
+    if os.path.exists(SERVICE_ACCOUNT_PATH):
+        creds = service_account.Credentials.from_service_account_file(
+            SERVICE_ACCOUNT_PATH, scopes=SCOPES
+        )
+        return build("sheets", "v4", credentials=creds)
+
+    # --- OAuth 2.0 (for personal/local use) ---
     creds = None
     if os.path.exists(TOKEN_PATH):
         creds = Credentials.from_authorized_user_file(TOKEN_PATH, SCOPES)
@@ -22,6 +36,12 @@ def get_service():
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
+            if not os.path.exists(CREDENTIALS_PATH):
+                raise FileNotFoundError(
+                    "No credentials found. Please provide either:\n"
+                    f"  - Service Account: {SERVICE_ACCOUNT_PATH}\n"
+                    f"  - OAuth 2.0 credentials: {CREDENTIALS_PATH}"
+                )
             flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_PATH, SCOPES)
             creds = flow.run_local_server(port=0)
         with open(TOKEN_PATH, "w") as token:
@@ -442,7 +462,7 @@ def add_conditional_formatting(
 
 
 # ---------------------------------------------------------------------------
-# Batch 4 — 9 tools: Values batch ops + full sheet management
+# Batch 4 — 9 tools
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
@@ -595,7 +615,7 @@ def trim_whitespace(
     service = get_service()
     body = {"requests": [{"trimWhitespace": {"range": {"sheetId": sheet_id, "startRowIndex": range_start_row, "endRowIndex": range_end_row, "startColumnIndex": range_start_col, "endColumnIndex": range_end_col}}}]}
     result = service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
-    trimmed = result["replies"][0].get("trimWhitespace", {}).get("cellsChangedCount",0)
+    trimmed = result["replies"][0].get("trimWhitespace", {}).get("cellsChangedCount", 0)
     return f"Trimmed whitespace from {trimmed} cell(s)."
 
 

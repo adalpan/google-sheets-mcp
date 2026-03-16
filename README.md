@@ -4,12 +4,19 @@ An MCP (Model Context Protocol) server that lets AI agents interact with Google 
 
 ## Tools
 
-| Tool | Description |
-|------|-------------|
-| `read_sheet` | Read data from a range in a spreadsheet |
-| `write_sheet` | Write or update cell values |
-| `append_rows` | Append new rows to a sheet |
-| `create_spreadsheet` | Create a new Google Spreadsheet |
+| # | Tool | Description |
+|---|------|-------------|
+| 1 | `read_sheet` | Read data from a range in a spreadsheet |
+| 2 | `write_sheet` | Write or update cell values |
+| 3 | `append_rows` | Append new rows to a sheet |
+| 4 | `create_spreadsheet` | Create a new Google Spreadsheet |
+| 5 | `list_sheets` | List all sheet tabs inside a spreadsheet |
+| 6 | `get_spreadsheet_info` | Get metadata: title, sheet names, row/column counts |
+| 7 | `clear_range` | Clear all values in a cell range |
+| 8 | `add_sheet` | Add a new tab to an existing spreadsheet |
+| 9 | `delete_rows` | Delete rows by index (0-based) |
+| 10 | `find_and_replace` | Search and replace text across sheets |
+| 11 | `format_cells` | Apply bold, font size, and background/text colors |
 
 ## Setup
 
@@ -51,12 +58,37 @@ Add this to your `claude_desktop_config.json`:
 }
 ```
 
+### 4. Connect via Python (without Docker)
+
+```bash
+git clone https://github.com/adalpan/google-sheets-mcp
+cd google-sheets-mcp
+pip install -r requirements.txt
+mkdir data
+cp /path/to/credentials.json data/
+TOKEN_PATH=data/token.json CREDENTIALS_PATH=data/credentials.json python src/server.py
+```
+
+## Testing with MCP Inspector
+
+```bash
+npx @modelcontextprotocol/inspector python src/server.py
+```
+
+Opens a web UI to call and test each tool interactively.
+
 ## Usage Examples
 
-- *"Read cells A1 to D10 from my spreadsheet"*
+- *"List all the sheets in my spreadsheet"*
+- *"Read cells A1 to D10 from Sheet1"*
 - *"Append a new row with ['Alice', 30, 'Berlin'] to Sheet1"*
 - *"Create a new spreadsheet called 'Q1 Budget' with sheets Sales and Expenses"*
 - *"Update cell B2 in my spreadsheet to 'Completed'"*
+- *"Clear the range Sheet1!A1:Z100"*
+- *"Add a new tab called 'Archive' to my spreadsheet"*
+- *"Delete rows 5 to 10 from Sheet1"*
+- *"Find and replace 'Pending' with 'Done' across all sheets"*
+- *"Make the header row bold with a yellow background"*
 
 ## License
 

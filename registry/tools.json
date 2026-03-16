@@ -1,0 +1,83 @@
+[
+  {
+    "name": "read_sheet",
+    "description": "Read data from a range in a Google Sheet.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "spreadsheet_id": {
+          "type": "string",
+          "description": "The ID of the spreadsheet (found in the URL)."
+        },
+        "range": {
+          "type": "string",
+          "description": "The A1 notation range to read (e.g. 'Sheet1!A1:D10')."
+        }
+      },
+      "required": ["spreadsheet_id", "range"]
+    }
+  },
+  {
+    "name": "write_sheet",
+    "description": "Write or update cell values in a Google Sheet.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "spreadsheet_id": {
+          "type": "string",
+          "description": "The ID of the spreadsheet (found in the URL)."
+        },
+        "range": {
+          "type": "string",
+          "description": "The A1 notation range to write (e.g. 'Sheet1!A1')."
+        },
+        "values": {
+          "type": "array",
+          "description": "2D list of values to write (e.g. [['Name', 'Age'], ['Alice', 30]])."
+        }
+      },
+      "required": ["spreadsheet_id", "range", "values"]
+    }
+  },
+  {
+    "name": "append_rows",
+    "description": "Append new rows to a Google Sheet.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "spreadsheet_id": {
+          "type": "string",
+          "description": "The ID of the spreadsheet (found in the URL)."
+        },
+        "range": {
+          "type": "string",
+          "description": "The A1 notation range to append after (e.g. 'Sheet1!A1')."
+        },
+        "values": {
+          "type": "array",
+          "description": "2D list of rows to append (e.g. [['Alice', 30], ['Bob', 25]])."
+        }
+      },
+      "required": ["spreadsheet_id", "range", "values"]
+    }
+  },
+  {
+    "name": "create_spreadsheet",
+    "description": "Create a new Google Spreadsheet.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "The title of the new spreadsheet."
+        },
+        "sheet_names": {
+          "type": "array",
+          "description": "Optional list of sheet tab names (e.g. ['Sales', 'Inventory']).",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["title"]
+    }
+  }
+]

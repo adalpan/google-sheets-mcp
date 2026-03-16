@@ -1,0 +1,9 @@
+name: google-sheets
+title: Google Sheets
+description: Read, write, append rows, and create Google Spreadsheets via OAuth 2.0.
+icon: https://www.gstatic.com/images/branding/product/1x/sheets_2020q4_48dp.png
+repo: https://github.com/adalpan/google-sheets-mcp
+source: github.com/adalpan/google-sheets-mcp
+categories:
+  - productivity
+  - data
